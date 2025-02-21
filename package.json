@@ -1,12 +1,46 @@
 {
   "name": "vite-plugin-vux",
   "version": "0.0.0",
+  "license": "MIT",
+  "author": "JasonZhao",
   "description": "基于 Vite 插件，用于在 Vite 项目中使用 Vux 组件库",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "keywords": [
+    "vite",
+    "plugin",
+    "vux"
+  ],
+  "files": [
+    "dist"
+  ],
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
   },
-  "keywords": ["vite", "plugin", "vux"],
-  "author": "JasonZhao <heqizhao@aliyun.com> (https://github.com/JaonZhao)",
-  "license": "MIT"
+  "scripts": {
+    "dev": "NODE_ENV=development rollup --config rollup.config.ts --configPlugin typescript --watch",
+    "build": "NODE_ENV=production rollup --config rollup.config.ts --configPlugin typescript",
+    "release": "pnpm run build && npm publish"
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^12.1.2",
+    "@types/node": "^22.13.4",
+    "rollup": "^4.34.6",
+    "rollup-plugin-terser": "^7.0.2",
+    "tslib": "^2.8.1",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.1"
+  },
+  "peerDependencies": {
+    "vux": "^2.9.2"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "git-checks": false
+  }
 }
