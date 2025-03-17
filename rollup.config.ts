@@ -1,6 +1,7 @@
 import { defineConfig } from "rollup";
 import typescript from "@rollup/plugin-typescript";
 import { terser } from "rollup-plugin-terser";
+import copy from "rollup-plugin-copy";
 
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -23,5 +24,11 @@ export default defineConfig({
       rootDir: "./src",
     }),
     terser(),
+    copy({
+      targets: [{
+        src: "src/libs/**/*",
+        dest: "dist/libs"
+      }]
+    })
   ],
 });
