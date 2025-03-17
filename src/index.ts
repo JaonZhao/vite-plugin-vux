@@ -1,59 +1,517 @@
+import fs from "node:fs";
 import path from "node:path";
-import type { Plugin } from "vite";
-import type * as _compiler from "vue/compiler-sfc";
-import type { Options } from "./options";
+import { createFilter, type Plugin } from "vite";
+import stripComments from "strip-comments";
 
-import { createFilter } from "vite";
+import {
+  initCompiler,
+  compileVue,
+  generateVue,
+  transformCustomBlocks,
+  transformScript,
+  transformStyles,
+  transformTemplate,
+} from "./compiler";
+import { parseRequest, isJavaScriptFile, inNodeModules } from "./query";
+import { getResolveMap, transformVuxImport } from "./resolve";
+import { getVuxStylePath, getThemeVariables, createStyleTransformPlugin } from "./style";
+import { createSsrTransformPlugin } from "./ssr";
+import { createXiconTransformPlugin, createTemplateAtrrsTransformPlugin } from "./icon";
+import { createI18nTransformPluginFor$t, createI18nTransformPluginForCustomBlock } from "./i18n";
 
-import { mergeOptions, hasPlugin, PluginName } from "./options";
-import { tryRequire } from "./utils/module";
-import { resolveCompiler } from "./compiler";
-import { parseJavaScript } from "./javaScript";
+export interface VuxOptions {
+  ssr?: boolean;
+  plugins: Plugin[];
+}
 
-export default function vuePlugin(rawOptions: Options): Plugin[] {
-  const pwd = process.cwd();
+export interface Config {
+  root: string;
+  ssr: VuxOptions["ssr"];
+  plugins: VuxOptions["plugins"];
+}
 
-  const options = mergeOptions({
-    root: pwd,
-    ssr: false,
-    compiler: null,
-    plugins: [],
-    maps: {},
-  }, rawOptions);
-  if(!options.compiler) {
-    options.compiler = resolveCompiler(pwd);
-  }
-  if(hasPlugin(PluginName.VUX_UI, options)) {
-    options.componentRecords = tryRequire(
-      path.resolve(options.root, "node_modules/vux/src/components/map.json")
-    );
-  }
+import { transform } from "@babel/core";
+import transformModulesPlugin from "babel-plugin-transform-commonjs";
 
+export default function (options: VuxOptions): Plugin[] {
+  const root = process.cwd();
+
+  const config: Config = {
+    root,
+    ssr: !!options.ssr,
+    plugins: options.plugins || []
+  };
+
+  const vueFilter = createFilter(/\.vue$/);
+  const vuxStylePath = getVuxStylePath(root);
+  const themeVariables = getThemeVariables(root, options.plugins);
+  const resolveMap = getResolveMap(root);
+
+  const styleTransformPlugin = createStyleTransformPlugin("style-parser", config);
+  const ssrTransformPlugin = createSsrTransformPlugin("ssr", config);
+  const xiconTransformPlugin = createXiconTransformPlugin("x-icon", config);
+  const templateAtrrsTransformPlugin = createTemplateAtrrsTransformPlugin("template-attrs", config);
+  const i18nTransformPluginFor$t = createI18nTransformPluginFor$t("i18n-t", config);
+  const i18nTransformPluginForCustomBlock = createI18nTransformPluginForCustomBlock("i18n-custom-block", config);
+
+  initCompiler(root);
 
   return [{
     name: "vite-plugin-vux:pre",
     enforce: "pre",
-  }, {
-    name: "vite-plugin-vux:normal",
-    config() {
+    config(config) {
       return {
         resolve: {
-          extensions: [".js", ".ts", ".vue"],
+          extensions: [".js", ".vue"],
+        },
+        css: {
+          preprocessorOptions: {
+            less: {
+              paths: [vuxStylePath],
+              modifyVars: themeVariables,
+            }
+          }
+        },
+        optimizeDeps: {
+          include: [
+            "vux > lodash.debounce",
+            "vux > array-filter",
+            "vux > array-find",
+            "vux > array-map",
+            "vux > array-shuffle",
+            "vux > autosize",
+            "vux > countup.js",
+            "vux > object-assign",
+            "vux > x-photoswipe/dist/photoswipe",
+            "vux > x-photoswipe/dist/photoswipe-ui-default",
+            "vux > qr.js/lib/QRCode",
+            "vux > qr.js/lib/ErrorCorrectLevel",
+            "vux > shake.js",
+            "vux > @antv/f2",
+            "vux > vux-blazy",
+            "vux > vanilla-masker",
+            "vux > validator/lib/isEmail",
+            "vux > validator/lib/isMobilePhone",
+            "vux > big.js"
+            // "vux > vux-xscroll/build/cmd/xscroll.js",
+            // "vux > vux-xscroll/build/cmd/plugins/pulldown",
+            // "vux > vux-xscroll/build/cmd/plugins/pullup",
+          ],
+          esbuildOptions: {
+            plugins: [{
+              name: "resolve-index",
+              setup(build) {
+
+                // build.onResolve({ filter: /x-photoswipe\/dist\/photoswipe/ }, (args) => ({ path: "vux___x-photoswipe_dist_photoswipe" }));
+                // build.onResolve({ filter: /x-photoswipe\/dist\/photoswipe-ui-default/ }, (args) => ({ path: "vux___x-photoswipe_dist_photoswipe-ui-default" }));
+                // build.onResolve({ filter: /qr.js\/lib\/QRCode/ }, (args) => ({ path: "vux___qr__js_lib_QRCode" }));
+                // build.onResolve({ filter: /qr.js\/lib\/ErrorCorrectLevel/ }, (args) => ({ path: "vux___qr__js_lib_ErrorCorrectLevel" }));
+
+                // build.onResolve({ filter: /vux-xscroll\/build\/cmd\/xscroll.js/ }, (args) => ({ path: "vux___vux-xscroll_build_cmd_xscroll__js" }));
+                // build.onResolve({ filter: /vux-xscroll\/build\/cmd\/plugins\/pulldown/ }, (args) => ({ path: "vux___vux-xscroll_build_cmd_plugins_pulldown" }));
+                // build.onResolve({ filter: /vux-xscroll\/build\/cmd\/plugins\/pullup/ }, (args) => ({ path: "vux___vux-xscroll_build_cmd_plugins_pullup" }));
+
+                // TODO: 思路是对的，当时缺少转化器
+                // build.onLoad({ filter: /vux-xscroll\/build\/cmd\/(xscroll\.js|plugins\/(pulldown|pullup))(\\?.*)?/ }, (args) => {                  
+                //   const text = fs.readFileSync(args.path, "utf8");
+                  
+                //   const contents = transform(text, { 
+                //     sourceType: "module", 
+                //     plugins: [transformModulesPlugin]
+                //   }).code;
+
+                //   return {
+                //     contents: contents,
+                //     loader: "js"
+                //   }
+                // });
+                
+                build.onLoad({ filter: new RegExp(`node_modules/vux/src/plugins/loading/index\\.js$`) }, async (args) => {
+                  const contents = await fs.readFileSync(args.path, "utf-8");
+
+                  return {
+                    contents: contents.replace(
+                      "import LoadingComponent from '../../components/loading'",
+                      "import LoadingComponent from '../../components/loading/index.vue'"
+                    )
+                  }
+                });
+                build.onLoad({ filter: new RegExp(`node_modules/vux/src/plugins/confirm/index\\.js$`) }, async (args) => {
+                  const contents = await fs.readFileSync(args.path, "utf-8");
+                  return {
+                    contents: contents.replace(
+                      "import ConfirmComponent from '../../components/confirm'",
+                      "import ConfirmComponent from '../../components/confirm/index.vue'"
+                    )
+                  }
+                });
+                build.onLoad({ filter: new RegExp(`node_modules/vux/src/plugins/alert/util\\.js$`) }, async (args) => {
+                  const contents = await fs.readFileSync(args.path, "utf-8");
+                  return {
+                    contents: contents.replace(
+                    "import AlertComponent from '../../components/alert'",
+                    "import AlertComponent from '../../components/alert/index.vue'"
+                    )
+                  }
+                });
+                build.onLoad({ filter: new RegExp(`node_modules/vux/src/plugins/toast/index\\.js$`) }, async (args) => {
+                  const contents = await fs.readFileSync(args.path, "utf-8");
+                  return {
+                    contents: contents.replace(
+                      "import ToastComponent from '../../components/toast'",
+                      "import ToastComponent from '../../components/toast/index.vue'"
+                    )
+                  }
+                });
+              }
+            }]
+          }
         }
       }
     },
-    async transform(oldCode, id) {
-      const filter = createFilter(/\.js$/);
-      if(!filter(id)) {
-        return;
-      }
+    transform(code, id) {
+      const { filename, query } = parseRequest(id);
 
-      const { code, map } = await parseJavaScript(oldCode, options);
-
-      return {
-        code,
-        map
+      if(vueFilter(filename) && !query.vue) {
+        const { template, script, styles, customBlocks } = compileVue(id, code);
+        return generateVue(
+          transformTemplate(template, [templateAtrrsTransformPlugin, ssrTransformPlugin, xiconTransformPlugin, i18nTransformPluginFor$t]),
+          transformScript(script),
+          transformStyles(styles, [styleTransformPlugin]),
+          transformCustomBlocks(customBlocks, [i18nTransformPluginForCustomBlock])
+        );
       }
     }
-  }]
+  }, {
+    name: "vite-plugin-vux",
+    transform(code, id) {
+      const { filename, query } = parseRequest(id);
+
+      if(id.includes("scroller/index.vue")) {
+        const a = path.resolve(__dirname, "libs", "xscroll-bundle.js");
+        return code
+          .replace("import XScroll from 'vux-xscroll/build/cmd/xscroll.js'", `import { XScroll } from "${a}"`)
+          .replace("import Pulldown from 'vux-xscroll/build/cmd/plugins/pulldown'", `import { Pulldown } from "${a}"`)
+          .replace("import Pullup from 'vux-xscroll/build/cmd/plugins/pullup'", `import { Pullup } from "${a}"`);
+      }
+
+      if (id.includes("node_modules/vux/src/components/x-number/index.vue")) {
+        return code.replace(
+          "const Big = require('big.js')",
+          "import Big from 'big.js'"
+        );
+      } else if (id.includes("node_modules/vux/src/components/picker/scroller.js")) {
+        return code
+          .replace(
+            "const Animate = require('./animate')",
+            "import Animate from './animate'"
+          )
+          .replace(
+            "const { getElement, getComputedStyle, easeOutCubic, easeInOutCubic } = require('./util')",
+            "import { getElement, getComputedStyle, easeOutCubic, easeInOutCubic } from './util'"
+          )
+          .replace(
+            "const passiveSupported = require('../../libs/passive_supported')",
+            "import passiveSupported from '../../libs/passive_supported'"
+          );
+      } else if (id.includes("vux/src/components/popup/popup.js")) {
+        return code.replace(
+          "const passiveSupported = require('../../libs/passive_supported')",
+          "import passiveSupported from '../../libs/passive_supported'"
+        );
+      } else if (id.includes("node_modules\/vux\/src\/directives\/transfer-dom\/index.js")) {
+        return code.replace(
+          "const objectAssign = require('object-assign')",
+          "import objectAssign from 'object-assign'"
+        );
+      } else if (id.includes("node_modules/vux/src/components/range/powerange.js")) {
+        return code
+          .replace(
+            "const { findClosest, getWidth, percentage } = require('./utils')",
+            "import { findClosest, getWidth, percentage } from './utils'"
+          )
+          .replace(
+            "const classes = require('./lib/classes')",
+            "import classes from './lib/classes'"
+          )
+          .replace(
+            "const mouse = require('./lib/mouse')",
+            "import mouse from './lib/mouse'"
+          )
+          .replace(
+            "const events = require('./lib/events')",
+            "import events from './lib/events'"
+          );
+      }
+
+      if (
+        id.includes("vux/src/libs/passive_supported.js") ||
+        id.includes("node_modules/vux/src/components/picker/animate.js") ||
+        id.includes("node_modules/vux/src/components/range/lib/classes.js") ||
+        id.includes("node_modules/vux/src/components/range/lib/events.js") ||
+        id.includes("node_modules/vux/src/components/range/lib/event.js") ||
+        id.includes("node_modules/vux/src/components/range/lib/delegate.js") ||
+        id.includes("node_modules/vux/src/components/range/lib/closest.js") ||
+        id.includes("node_modules/vux/src/components/range/lib/matches-selector.js") ||
+        id.includes("node_modules/vux/src/components/range/lib/query.js") ||
+        id.includes("node_modules/vux/src/components/range/lib/closest.js") ||
+        id.includes("node_modules/vux/src/components/range/lib/emitter.js") ||
+        id.includes("node_modules/vux/src/components/range/lib/mouse.js")
+       ) {
+        if (id.includes("node_modules/vux/src/components/range/lib/classes.js")) {
+          return translateCjsToEsm(code)
+            .code
+            .replace("_utils.indexof", "indexof")
+            .replace("import _utils", "import { indexof }");
+        }
+    
+        return translateCjsToEsm(code).code;
+      }
+
+      if(!inNodeModules(id)) {
+        return parse(
+          code,
+          (options) => {
+            let str = "";
+            options.components.forEach(function (component) {
+              let file = `vux/${resolveMap[component.originalName]}`;
+              str += `import ${component.newName} from '${file}'\n`;
+            });
+            return str;
+          },
+          "vux"
+        );
+      }
+    }
+  }];
+}
+
+import * as parser from "@babel/parser";
+import traverse from "@babel/traverse";
+import generator from "@babel/generator";
+
+export function translateCjsToEsm(text: string) {
+  const options = {};
+
+  let ast;
+  try {
+    return transform(text, {
+      sourceType: "module",
+      plugins: [transformModulesPlugin]
+    });
+  } catch (err) {
+    ast = parser.parse(text, { sourceType: "module" });
+    traverse(ast, options);
+
+    return generator(ast);
+  }
+}
+
+export function parse(source, fn, moduleName) {
+  // fix no space between import and {
+  // ref https://github.com/airyland/vux/issues/1365
+  source = source.replace(/import{/g, "import {");
+  source = source.replace(/\/\/\n/g, "");
+  source = trimLine(source);
+
+  moduleName = moduleName || "vux";
+  if (
+    (moduleName && source.indexOf(moduleName) === -1) ||
+    source.indexOf("import") === -1
+  ) {
+    return source;
+  }
+  const reg = getReg(moduleName);
+
+  let replaceList = [];
+  removeComments(removeCommentLine(source)).replace(
+    reg,
+    function (match1, match2, match3) {
+      // dirty way for the moment
+      if (match1.indexOf("import") !== match1.lastIndexOf("import")) {
+        match1 = match1.slice(match1.lastIndexOf("import"), match1.length);
+      }
+
+      const components = getNames(match1);
+
+      if (fn) {
+        const replaceString = fn({
+          components: components,
+          match1: match1,
+          match2: match2,
+          match3: match3,
+          source: source,
+        });
+        // @ts-ignore
+        replaceList.push([match1, replaceString]);
+      }
+    }
+  );
+  source = removeCommentLine(source);
+  replaceList.forEach(function (one) {
+    source = source.replace(one[0], one[1]);
+  });
+  return source;
+}
+
+function removeCommentLine(source) {
+  const rs = source
+    .split("\n")
+    .map(function (line) {
+      line = line.replace(/^\s+|\s+$/g, "");
+      try {
+        line = stripComments.line(line);
+      } catch (e) {}
+      return line;
+    })
+    .join("\n");
+  return rs;
+}
+
+function trimLine(str) {
+  let isImport = false;
+  let list = str.split("\n");
+  for (let i = 0; i < list.length; i++) {
+    let currentLine = trim(list[i]);
+    if (
+      /import/.test(currentLine) &&
+      !/from\s+('|")vux('|")/.test(currentLine)
+    ) {
+      isImport = true;
+    } else if (/from\s+('|")(.+)('|")/.test(currentLine)) {
+      if (isImport) {
+        isImport = false;
+      }
+    } else {
+      if (isImport) {
+        list[i] = trim(list[i]);
+      }
+    }
+  }
+  return list.join("\n");
+}
+
+function trim(str) {
+  return str.replace(/^\s+/, "").replace(/\s+$/, "");
+}
+
+function getReg(moduleName) {
+  return new RegExp(
+    `import\\s.*(\\n(?!import).*)*from(\\s)+('|")${moduleName}('|");*`,
+    "g"
+  );
+}
+
+function getNames(one) {
+  const startIndex = one.indexOf("{");
+  const endIndex = one.indexOf("}");
+  const content = one.slice(startIndex + 1, endIndex);
+  const list = content
+    .split(",")
+    .map((one) => {
+      return one.replace(/^\s+|\s+$/g, "").replace(/\n/g, "");
+    })
+    .filter((one) => {
+      return !!one;
+    })
+    .map((one) => {
+      if (!/\s+/.test(one)) {
+        return {
+          originalName: one,
+          newName: one,
+        };
+      } else if (/\s+as/.test(one)) {
+        let _list = one.split("as").map(function (one) {
+          return one.replace(/^\s+|\s+$/g, "");
+        });
+        return {
+          originalName: _list[0],
+          newName: _list[1],
+        };
+      }
+
+      return one;
+    });
+  return list;
+}
+
+function removeComments(str) {
+  str = ("__" + str + "__").split("");
+  var mode = {
+    singleQuote: false,
+    doubleQuote: false,
+    regex: false,
+    blockComment: false,
+    lineComment: false,
+    condComp: false,
+  };
+  for (var i = 0, l = str.length; i < l; i++) {
+    if (mode.regex) {
+      if (str[i] === "/" && str[i - 1] !== "'") {
+        mode.regex = false;
+      }
+      continue;
+    }
+
+    if (mode.singleQuote) {
+      if (str[i] === "'" && str[i - 1] !== "'") {
+        mode.singleQuote = false;
+      }
+      continue;
+    }
+
+    if (mode.doubleQuote) {
+      if (str[i] === '"' && str[i - 1] !== "'") {
+        mode.doubleQuote = false;
+      }
+      continue;
+    }
+
+    if (mode.blockComment) {
+      if (str[i] === "*" && str[i + 1] === "/") {
+        str[i + 1] = "";
+        mode.blockComment = false;
+      }
+      str[i] = "";
+      continue;
+    }
+
+    if (mode.lineComment) {
+      if (str[i + 1] === "n" || str[i + 1] === "r") {
+        mode.lineComment = false;
+      }
+      str[i] = "";
+      continue;
+    }
+
+    if (mode.condComp) {
+      if (str[i - 2] === "@" && str[i - 1] === "*" && str[i] === "/") {
+        mode.condComp = false;
+      }
+      continue;
+    }
+
+    mode.doubleQuote = str[i] === '"';
+    mode.singleQuote = str[i] === "'";
+
+    if (str[i] === "/") {
+      if (str[i + 1] === "*" && str[i + 2] === "@") {
+        mode.condComp = true;
+        continue;
+      }
+      if (str[i + 1] === "*") {
+        str[i] = "";
+        mode.blockComment = true;
+        continue;
+      }
+      if (str[i + 1] === "/") {
+        str[i] = "";
+        mode.lineComment = true;
+        continue;
+      }
+      mode.regex = true;
+    }
+  }
+  const rs = str.join("").slice(2, -2);
+  return rs;
 }
