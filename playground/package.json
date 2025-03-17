@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "keywords": [],
   "author": "",
@@ -14,11 +15,14 @@
     "vue": "^2.7.16",
     "vue-router": "^3.6.5",
     "vuex": "^3.6.2",
-    "vux": "^2.11.1"
+    "vux": "2.9.1",
+    "vue-i18n": "8.15.3"
   },
   "devDependencies": {
+    "@vitejs/plugin-legacy": "^6.0.2",
     "@vitejs/plugin-vue2": "^2.3.3",
-    "less": "^4.2.2",
+    "@vitejs/plugin-vue2-jsx": "^1.1.1",
+    "less": "^2.7.1",
     "vite": "^6.1.1"
   }
 }

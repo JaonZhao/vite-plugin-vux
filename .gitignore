@@ -6,3 +6,7 @@
 
 # system files
 .DS_Store
+
+/demo
+/src/cash
+/src/featuers
