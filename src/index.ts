@@ -3,7 +3,7 @@ import path from "node:path";
 import { createFilter, type Plugin } from "vite";
 import stripComments from "strip-comments";
 
-import { getComponentMap } from "./vuxApi";
+import { getComponentMap, getStylePath, getThemeVariables } from "./vuxApi";
 import {
   initCompiler,
   compileVue,
@@ -11,10 +11,10 @@ import {
   transformCustomBlocks,
   transformScript,
   transformStyles,
-  transformTemplate,
+  transformTemplate,  
 } from "./compiler";
 import { parseRequest, isJavaScriptFile, inNodeModules } from "./utils/query";
-import { getVuxStylePath, getThemeVariables, createStyleTransformPlugin } from "./style";
+import { createStyleTransformPlugin } from "./style";
 import { createSsrTransformPlugin } from "./ssr";
 import { createXiconTransformPlugin, createTemplateAtrrsTransformPlugin } from "./icon";
 import { createI18nTransformPluginFor$t, createI18nTransformPluginForCustomBlock } from "./i18n";
@@ -36,6 +36,8 @@ export default function (options: VuxOptions): Plugin[] {
   const ssr = !!options.ssr;
   const componentMap = getComponentMap(root);
   const plugins = options.plugins || [];
+  const stylePath = getStylePath(root);
+  const themeVariables = getThemeVariables(root, plugins);
 
   const config: Config = {
     root,
@@ -45,8 +47,6 @@ export default function (options: VuxOptions): Plugin[] {
   };
 
   const vueFilter = createFilter(/\.vue$/);
-  const vuxStylePath = getVuxStylePath(root);
-  const themeVariables = getThemeVariables(root, options.plugins);
 
   const styleTransformPlugin = createStyleTransformPlugin("style-parser", config);
   const ssrTransformPlugin = createSsrTransformPlugin("ssr", config);
@@ -68,7 +68,7 @@ export default function (options: VuxOptions): Plugin[] {
         css: {
           preprocessorOptions: {
             less: {
-              paths: [vuxStylePath],
+              paths: [stylePath],
               modifyVars: themeVariables,
             }
           }

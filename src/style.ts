@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import stripeComments from "strip-css-comments";
 
 import {
   type VuxPlugin,
@@ -14,19 +13,19 @@ interface VuxPluginTheme extends VuxPlugin {
   path: string;
 }
 
-export function getVuxStylePath(root: string) {
-  return path.resolve(root, "node_modules", "vux", "src/styles/variable.less");
-}
+// export function getVuxStylePath(root: string) {
+//   return path.resolve(root, "node_modules", "vux", "src/styles/variable.less");
+// }
 
-export function getThemeVariables(root: string, plugins: VuxPlugin[]) {
-  const [ plugin ] = plugins.filter(plugin => plugin.name === "less-theme");
+// export function getThemeVariables(root: string, plugins: VuxPlugin[]) {
+//   const [ plugin ] = plugins.filter(plugin => plugin.name === "less-theme");
 
-  if(!plugin) {
-    return {}
-  }
+//   if(!plugin) {
+//     return {}
+//   }
 
-  return getVariables(path.resolve(root, (plugin as VuxPluginTheme).path));
-}
+//   return getVariables(path.resolve(root, (plugin as VuxPluginTheme).path));
+// }
 
 export function parseStyle(code: string, plugins: VuxPlugin[]) {
   const [ plugin ] = plugins.filter(plugin => plugin.name === "style-parser") as [VuxPluginStyleParser];
@@ -36,77 +35,77 @@ export function parseStyle(code: string, plugins: VuxPlugin[]) {
     : code;
 }
 
-function trim(str: string | undefined) {
-  if (!str) {
-    return "";
-  } else {
-    return str.replace(/^\s+|\s+$/g, "");
-  }
-}
+// function trim(str: string | undefined) {
+//   if (!str) {
+//     return "";
+//   } else {
+//     return str.replace(/^\s+|\s+$/g, "");
+//   }
+// }
 
-function getVariables(filePath: string) {
-  const text = fs.readFileSync(filePath, "utf-8");
-  const variables: Record<string, string> = {};
+// function getVariables(filePath: string) {
+//   const text = fs.readFileSync(filePath, "utf-8");
+//   const variables: Record<string, string> = {};
 
-  stripeComments(text)
-    .split("\n")
-    .forEach((line: string) => {
-      if (trim(line).indexOf("//") === 0 || trim(line).indexOf("/*") === 0) {
-        return;
-      }
+//   stripeComments(text)
+//     .split("\n")
+//     .forEach((line: string) => {
+//       if (trim(line).indexOf("//") === 0 || trim(line).indexOf("/*") === 0) {
+//         return;
+//       }
 
-      if (line.indexOf("//") > 0) {
-        line = trim(line.slice(0, line.indexOf("//")));
-      }
-      if (line.indexOf("/*") > 0) {
-        line = trim(line.slice(0, line.indexOf("/*")));
-      }
+//       if (line.indexOf("//") > 0) {
+//         line = trim(line.slice(0, line.indexOf("//")));
+//       }
+//       if (line.indexOf("/*") > 0) {
+//         line = trim(line.slice(0, line.indexOf("/*")));
+//       }
 
-      const pair = line.split(":");
-      if (pair.length < 2) {
-        if (!/@import/.test(pair[0])) {
-          return;
-        }
+//       const pair = line.split(":");
+//       if (pair.length < 2) {
+//         if (!/@import/.test(pair[0])) {
+//           return;
+//         }
 
-        const pariFilePath = path.resolve(
-          path.dirname(filePath),
-          pair[0]
-            .replace(/;/g, "")
-            .replace("@import", "")
-            .replace(/'/g, "")
-            .replace(/"/g, "")
-            .replace(/\s+/g, "")
-            .trim()
-        );
-        const partVariables: Record<string, string> =
-          getVariables(pariFilePath);
+//         const pariFilePath = path.resolve(
+//           path.dirname(filePath),
+//           pair[0]
+//             .replace(/;/g, "")
+//             .replace("@import", "")
+//             .replace(/'/g, "")
+//             .replace(/"/g, "")
+//             .replace(/\s+/g, "")
+//             .trim()
+//         );
+//         const partVariables: Record<string, string> =
+//           getVariables(pariFilePath);
 
-        for (let key in partVariables) {
-          variables[key] = partVariables[key];
-        }
-      } else {
-        let key = pair[0].replace("\r", "").replace("@", "");
-        if (!key) {
-          return;
-        }
+//         for (let key in partVariables) {
+//           variables[key] = partVariables[key];
+//         }
+//       } else {
+//         let key = pair[0].replace("\r", "").replace("@", "");
+//         if (!key) {
+//           return;
+//         }
 
-        key = key.trim();
-        if (!/^[A-Za-z0-9_-]*$/.test(key)) {
-          console.log(`[vux-loader] 疑似不合法命名，将被忽略：${key}`);
-          return;
-        }
+//         key = key.trim();
+//         if (!/^[A-Za-z0-9_-]*$/.test(key)) {
+//           console.log(`[vux-loader] 疑似不合法命名，将被忽略：${key}`);
+//           return;
+//         }
 
-        const value = pair[1]
-          .replace(";", "")
-          .replace("\r", "")
-          .replace(/^\s+|\s+$/g, "");
+//         const value = pair[1]
+//           .replace(";", "")
+//           .replace("\r", "")
+//           .replace(/^\s+|\s+$/g, "");
 
-        variables[key] = value;
-      }
-    });
+//         variables[key] = value;
+//       }
+//     });
 
-  return variables;
-}
+//   return variables;
+// }
 
 import { 
   type Block, 
