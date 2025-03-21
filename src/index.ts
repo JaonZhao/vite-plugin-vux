@@ -3,6 +3,7 @@ import path from "node:path";
 import { createFilter, type Plugin } from "vite";
 import stripComments from "strip-comments";
 
+import { getComponentMap } from "./vuxApi";
 import {
   initCompiler,
   compileVue,
@@ -12,8 +13,7 @@ import {
   transformStyles,
   transformTemplate,
 } from "./compiler";
-import { parseRequest, isJavaScriptFile, inNodeModules } from "./query";
-import { getResolveMap, transformVuxImport } from "./resolve";
+import { parseRequest, isJavaScriptFile, inNodeModules } from "./utils/query";
 import { getVuxStylePath, getThemeVariables, createStyleTransformPlugin } from "./style";
 import { createSsrTransformPlugin } from "./ssr";
 import { createXiconTransformPlugin, createTemplateAtrrsTransformPlugin } from "./icon";
@@ -27,25 +27,26 @@ export interface VuxOptions {
 export interface Config {
   root: string;
   ssr: VuxOptions["ssr"];
+  componentMap: [string, string];
   plugins: VuxOptions["plugins"];
 }
 
-import { transform } from "@babel/core";
-import transformModulesPlugin from "babel-plugin-transform-commonjs";
-
 export default function (options: VuxOptions): Plugin[] {
   const root = process.cwd();
+  const ssr = !!options.ssr;
+  const componentMap = getComponentMap(root);
+  const plugins = options.plugins || [];
 
   const config: Config = {
     root,
-    ssr: !!options.ssr,
-    plugins: options.plugins || []
+    ssr,
+    componentMap,
+    plugins,
   };
 
   const vueFilter = createFilter(/\.vue$/);
   const vuxStylePath = getVuxStylePath(root);
   const themeVariables = getThemeVariables(root, options.plugins);
-  const resolveMap = getResolveMap(root);
 
   const styleTransformPlugin = createStyleTransformPlugin("style-parser", config);
   const ssrTransformPlugin = createSsrTransformPlugin("ssr", config);
@@ -187,6 +188,7 @@ export default function (options: VuxOptions): Plugin[] {
     transform(code, id) {
       const { filename, query } = parseRequest(id);
 
+      // TODO: 可优化
       if(id.includes("scroller/index.vue")) {
         const a = path.resolve(__dirname, "libs", "xscroll-bundle.js");
         return code
@@ -195,6 +197,7 @@ export default function (options: VuxOptions): Plugin[] {
           .replace("import Pullup from 'vux-xscroll/build/cmd/plugins/pullup'", `import { Pullup } from "${a}"`);
       }
 
+      // TODO: 可优化
       if (id.includes("node_modules/vux/src/components/x-number/index.vue")) {
         return code.replace(
           "const Big = require('big.js')",
@@ -274,7 +277,7 @@ export default function (options: VuxOptions): Plugin[] {
           (options) => {
             let str = "";
             options.components.forEach(function (component) {
-              let file = `vux/${resolveMap[component.originalName]}`;
+              let file = `vux/${componentMap[component.originalName]}`;
               str += `import ${component.newName} from '${file}'\n`;
             });
             return str;
@@ -289,6 +292,8 @@ export default function (options: VuxOptions): Plugin[] {
 import * as parser from "@babel/parser";
 import traverse from "@babel/traverse";
 import generator from "@babel/generator";
+import { transform } from "@babel/core";
+import transformModulesPlugin from "babel-plugin-transform-commonjs";
 
 export function translateCjsToEsm(text: string) {
   const options = {};

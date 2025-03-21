@@ -1,3 +1,8 @@
+import fs from "node:fs";
+import path from "node:path";
+
+import { getVuxDirPath, tryRequire } from "./utils/module";
+
 export enum VuxPluginName {
   LESS_THEME = "less-theme",
   STYLE_PARSER = "style-parser",
@@ -32,4 +37,9 @@ export interface VuxPluginI18n extends VuxPlugin {
 export function getVuxPlugin(plugins: VuxPlugin[], name: VuxPluginName) {
   const [ plugin ] = plugins.filter((plugin) => plugin.name === name);
   return plugin;
+}
+
+export function getComponentMap(root: string) {
+  const componentMapPath = path.resolve(root, getVuxDirPath(), "src/components/map.json");
+  return tryRequire(componentMapPath);
 }

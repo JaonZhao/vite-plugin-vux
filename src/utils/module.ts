@@ -1,7 +1,9 @@
+import path from "node:path";
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
 
 const _require = createRequire(import.meta.url);
+const NODE_MODULES = "node_modules";
 
 export function tryRequire(id: string, from?: string) {
   try {
@@ -25,3 +27,10 @@ export function joinAttrs(attrs: Record<string, string|boolean>, excludes: strin
     .join();
 }
 
+export function getVuxDirPath() {
+  return path.resolve(NODE_MODULES, "vux");
+}
+
+export function resolvePath(...paths: string[]) {
+  return path.resolve(...paths);
+}
