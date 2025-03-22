@@ -1,6 +1,6 @@
 import { type SFCBlock, type SFCDescriptor } from "vue/compiler-sfc";
 
-import { tryRequire } from "./utils";
+import { tryRequire } from "./utils/module";
 
 export interface Block extends SFCBlock {
   filename: string;
