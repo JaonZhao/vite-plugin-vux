@@ -189,7 +189,7 @@ export default function (options: VuxOptions): Plugin[] {
       const { filename, query } = parseRequest(id);
 
       // TODO: 可优化
-      if(id.includes("scroller/index.vue")) {
+      if(path.posix.normalize(id).includes("scroller/index.vue")) {
         const a = path.resolve(__dirname, "libs", "xscroll-bundle.js");
         return code
           .replace("import XScroll from 'vux-xscroll/build/cmd/xscroll.js'", `import { XScroll } from "${a}"`)
@@ -198,12 +198,12 @@ export default function (options: VuxOptions): Plugin[] {
       }
 
       // TODO: 可优化
-      if (id.includes("node_modules/vux/src/components/x-number/index.vue")) {
+      if (path.posix.normalize(id).includes("node_modules/vux/src/components/x-number/index.vue")) {
         return code.replace(
           "const Big = require('big.js')",
           "import Big from 'big.js'"
         );
-      } else if (id.includes("node_modules/vux/src/components/picker/scroller.js")) {
+      } else if (path.posix.normalize(id).includes("node_modules/vux/src/components/picker/scroller.js")) {
         return code
           .replace(
             "const Animate = require('./animate')",
@@ -217,17 +217,17 @@ export default function (options: VuxOptions): Plugin[] {
             "const passiveSupported = require('../../libs/passive_supported')",
             "import passiveSupported from '../../libs/passive_supported'"
           );
-      } else if (id.includes("vux/src/components/popup/popup.js")) {
+      } else if (path.posix.normalize(id).includes("vux/src/components/popup/popup.js")) {
         return code.replace(
           "const passiveSupported = require('../../libs/passive_supported')",
           "import passiveSupported from '../../libs/passive_supported'"
         );
-      } else if (id.includes("node_modules\/vux\/src\/directives\/transfer-dom\/index.js")) {
+      } else if (path.posix.normalize(id).includes("node_modules\/vux\/src\/directives\/transfer-dom\/index.js")) {
         return code.replace(
           "const objectAssign = require('object-assign')",
           "import objectAssign from 'object-assign'"
         );
-      } else if (id.includes("node_modules/vux/src/components/range/powerange.js")) {
+      } else if (path.posix.normalize(id).includes("node_modules/vux/src/components/range/powerange.js")) {
         return code
           .replace(
             "const { findClosest, getWidth, percentage } = require('./utils')",
@@ -248,20 +248,20 @@ export default function (options: VuxOptions): Plugin[] {
       }
 
       if (
-        id.includes("vux/src/libs/passive_supported.js") ||
-        id.includes("node_modules/vux/src/components/picker/animate.js") ||
-        id.includes("node_modules/vux/src/components/range/lib/classes.js") ||
-        id.includes("node_modules/vux/src/components/range/lib/events.js") ||
-        id.includes("node_modules/vux/src/components/range/lib/event.js") ||
-        id.includes("node_modules/vux/src/components/range/lib/delegate.js") ||
-        id.includes("node_modules/vux/src/components/range/lib/closest.js") ||
-        id.includes("node_modules/vux/src/components/range/lib/matches-selector.js") ||
-        id.includes("node_modules/vux/src/components/range/lib/query.js") ||
-        id.includes("node_modules/vux/src/components/range/lib/closest.js") ||
-        id.includes("node_modules/vux/src/components/range/lib/emitter.js") ||
-        id.includes("node_modules/vux/src/components/range/lib/mouse.js")
+        path.posix.normalize(id).includes("vux/src/libs/passive_supported.js") ||
+        path.posix.normalize(id).includes("node_modules/vux/src/components/picker/animate.js") ||
+        path.posix.normalize(id).includes("node_modules/vux/src/components/range/lib/classes.js") ||
+        path.posix.normalize(id).includes("node_modules/vux/src/components/range/lib/events.js") ||
+        path.posix.normalize(id).includes("node_modules/vux/src/components/range/lib/event.js") ||
+        path.posix.normalize(id).includes("node_modules/vux/src/components/range/lib/delegate.js") ||
+        path.posix.normalize(id).includes("node_modules/vux/src/components/range/lib/closest.js") ||
+        path.posix.normalize(id).includes("node_modules/vux/src/components/range/lib/matches-selector.js") ||
+        path.posix.normalize(id).includes("node_modules/vux/src/components/range/lib/query.js") ||
+        path.posix.normalize(id).includes("node_modules/vux/src/components/range/lib/closest.js") ||
+        path.posix.normalize(id).includes("node_modules/vux/src/components/range/lib/emitter.js") ||
+        path.posix.normalize(id).includes("node_modules/vux/src/components/range/lib/mouse.js")
        ) {
-        if (id.includes("node_modules/vux/src/components/range/lib/classes.js")) {
+        if (path.posix.normalize(id).includes("node_modules/vux/src/components/range/lib/classes.js")) {
           return translateCjsToEsm(code)
             .code
             .replace("_utils.indexof", "indexof")
