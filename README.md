@@ -57,9 +57,3 @@ Feel free to open issues for bug reports, feature requests, or general questions
 ## License
 
 This project is licensed under the MIT License. See the `LICENSE` file for more details.
-
-## Support
-
-If you encounter any issues or have questions, please check the [GitHub repository](https://github.com/your-repo/vite-plugin-vux) for documentation and support. You can also open an issue to get help from the community.
-
-Happy coding!
