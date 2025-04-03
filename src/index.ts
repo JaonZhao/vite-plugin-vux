@@ -127,7 +127,7 @@ export default function (options: VuxOptions): Plugin[] {
                 //   }
                 // });
                 
-                build.onLoad({ filter: new RegExp(`node_modules/vux/src/plugins/loading/index\\.js$`) }, async (args) => {
+                build.onLoad({ filter: /node_modules[\\|\/]vux[\\|\/]src[\\|\/]plugins[\\|\/]loading[\\|\/]index.js$/ }, async (args) => {
                   const contents = await fs.readFileSync(args.path, "utf-8");
 
                   return {
@@ -137,7 +137,7 @@ export default function (options: VuxOptions): Plugin[] {
                     )
                   }
                 });
-                build.onLoad({ filter: new RegExp(`node_modules/vux/src/plugins/confirm/index\\.js$`) }, async (args) => {
+                build.onLoad({ filter: /node_modules[\\|\/]vux[\\|\/]src[\\|\/]plugins[\\|\/]confirm[\\|\/]index.js$/ }, async (args) => {
                   const contents = await fs.readFileSync(args.path, "utf-8");
                   return {
                     contents: contents.replace(
@@ -146,7 +146,7 @@ export default function (options: VuxOptions): Plugin[] {
                     )
                   }
                 });
-                build.onLoad({ filter: new RegExp(`node_modules/vux/src/plugins/alert/util\\.js$`) }, async (args) => {
+                build.onLoad({ filter: /node_modules[\\|\/]vux[\\|\/]src[\\|\/]plugins[\\|\/]alert[\\|\/]util.js$/ }, async (args) => {
                   const contents = await fs.readFileSync(args.path, "utf-8");
                   return {
                     contents: contents.replace(
@@ -155,7 +155,7 @@ export default function (options: VuxOptions): Plugin[] {
                     )
                   }
                 });
-                build.onLoad({ filter: new RegExp(`node_modules/vux/src/plugins/toast/index\\.js$`) }, async (args) => {
+                build.onLoad({ filter: /node_modules[\\|\/]vux[\\|\/]src[\\|\/]plugins[\\|\/]toast[\\|\/]index.js$/ }, async (args) => {
                   const contents = await fs.readFileSync(args.path, "utf-8");
                   return {
                     contents: contents.replace(
@@ -190,11 +190,16 @@ export default function (options: VuxOptions): Plugin[] {
 
       // TODO: 可优化
       if(path.posix.normalize(id).includes("scroller/index.vue")) {
-        const a = path.resolve(__dirname, "libs", "xscroll-bundle.js");
+        const normalizedDir = __dirname.replace(/\\/g, "/");
+        const xscrollPath = path.posix.join(
+          normalizedDir,
+          'libs',
+          'xscroll-bundle.js'
+        )
         return code
-          .replace("import XScroll from 'vux-xscroll/build/cmd/xscroll.js'", `import { XScroll } from "${a}"`)
-          .replace("import Pulldown from 'vux-xscroll/build/cmd/plugins/pulldown'", `import { Pulldown } from "${a}"`)
-          .replace("import Pullup from 'vux-xscroll/build/cmd/plugins/pullup'", `import { Pullup } from "${a}"`);
+          .replace("import XScroll from 'vux-xscroll/build/cmd/xscroll.js'", `import { XScroll } from "${xscrollPath}"`)
+          .replace("import Pulldown from 'vux-xscroll/build/cmd/plugins/pulldown'", `import { Pulldown } from "${xscrollPath}"`)
+          .replace("import Pullup from 'vux-xscroll/build/cmd/plugins/pullup'", `import { Pullup } from "${xscrollPath}"`);
       }
 
       // TODO: 可优化
